@@ -1,6 +1,6 @@
 import React from "react";
-import { View, Text, Image } from "react-native";
-import styles from "../../app/(usuario)/login/login.styles";
+import { View, Image } from "react-native";
+import styles from "../../app/(usuario)/login.styles";
 
 export default function HeaderLogin() {
   return (
@@ -10,8 +10,6 @@ export default function HeaderLogin() {
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={styles.title}>Minha Gibiteca</Text>
-      <Text style={styles.subtitle}>Tela de Login</Text>
     </View>
   );
 }

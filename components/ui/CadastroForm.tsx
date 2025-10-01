@@ -1,32 +1,65 @@
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, Alert } from 'react-native';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import styles from '../../app/(usuario)/cadastro/cadastro.styles';
+import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'; 
+import styles from '../../app/(usuario)/cadastro.styles';
+import { cadastrarUsuario } from '../../services/userService';
+import { notify, showAlert } from './notifyService';
 
 export default function CadastroForm() {
+  const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const auth = getAuth();
-
-  const handleCadastro = () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Atenção', 'Preencha todos os campos.');
+  const handleCadastro = async () => {
+    console.log('Dados do formulário:', { nome, email, senha: '***', confirmarSenha: '***' });
+    
+    if (!nome || !email || !senha || !confirmarSenha) {
+      notify.error('Preencha todos os campos.', 'Atenção');
       return;
     }
-    if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não conferem.');
+    if (senha !== confirmarSenha) {
+      notify.error('As senhas não conferem.', 'Erro');
       return;
     }
 
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(() => Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!'))
-      .catch(err => Alert.alert('Erro', err.message));
+    setLoading(true); 
+
+    try {
+      const response = await cadastrarUsuario({ nome, email, senha });
+      
+      console.log('Cadastro bem-sucedido, mensagem:', response.message);
+      
+      showAlert.success(
+        response.message + '\n\nVocê será redirecionado para a tela de login.',
+        'Cadastro Realizado',
+        () => {
+          setNome('');
+          setEmail('');
+          setSenha('');
+          setConfirmarSenha('');
+          router.push('/(usuario)/login');
+        }
+      );
+    } catch (error: any) {
+      notify.error(error.message || 'Erro desconhecido ao cadastrar usuário', 'Erro no Cadastro');
+    } finally {
+      setLoading(false); 
+    }
   };
 
   return (
     <View style={styles.form}>
+      <TextInput
+        placeholder="Nome"
+        placeholderTextColor="#A0A0A0"
+        style={styles.input}
+        value={nome}
+        onChangeText={setNome}
+        editable={!loading}
+      />
       <TextInput
         placeholder="E-mail"
         placeholderTextColor="#A0A0A0"
@@ -35,27 +68,45 @@ export default function CadastroForm() {
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
+        editable={!loading}
       />
       <TextInput
         placeholder="Senha"
         placeholderTextColor="#A0A0A0"
         style={styles.input}
         secureTextEntry
-        value={password}
-        onChangeText={setPassword}
+        value={senha}
+        onChangeText={setSenha}
+        editable={!loading}
       />
       <TextInput
-        placeholder="Confirme a senha"
+        placeholder="Confirmar Senha"
         placeholderTextColor="#A0A0A0"
         style={styles.input}
         secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
+        value={confirmarSenha}
+        onChangeText={setConfirmarSenha}
+        editable={!loading}
       />
+      
+      <View style={styles.buttonContainer}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#F75C03" style={{ height: 60 }} />
+        ) : (
+          <TouchableOpacity 
+            style={styles.primaryButton} 
+            onPress={handleCadastro}
+          >
+            <Text style={styles.primaryButtonText}>Cadastrar</Text>
+          </TouchableOpacity>
+        )}
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleCadastro}>
-        <Text style={styles.primaryButtonText}>Cadastrar</Text>
-      </TouchableOpacity>
+        <Link href="/(usuario)/login" asChild>
+          <TouchableOpacity style={styles.secondaryButton} disabled={loading}>
+            <Text style={styles.secondaryButtonText}>Já possui uma conta? Faça login</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
     </View>
   );
 }
