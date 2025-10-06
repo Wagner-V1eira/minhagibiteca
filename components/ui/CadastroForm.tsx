@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'; 
 import styles from '../../app/(usuario)/cadastro.styles';
 import { cadastrarUsuario } from '../../services/userService';
-import { notify, showAlert } from './notifyService';
+import { notify } from './notifyService';
 
 export default function CadastroForm() {
   const [nome, setNome] = useState('');
@@ -14,8 +14,6 @@ export default function CadastroForm() {
   const router = useRouter();
 
   const handleCadastro = async () => {
-    console.log('Dados do formulário:', { nome, email, senha: '***', confirmarSenha: '***' });
-    
     if (!nome || !email || !senha || !confirmarSenha) {
       notify.error('Preencha todos os campos.', 'Atenção');
       return;
@@ -30,10 +28,8 @@ export default function CadastroForm() {
     try {
       const response = await cadastrarUsuario({ nome, email, senha });
       
-      console.log('Cadastro bem-sucedido, mensagem:', response.message);
-      
-      showAlert.success(
-        response.message + '\n\nVocê será redirecionado para a tela de login.',
+      notify.success(
+        response.message,
         'Cadastro Realizado',
         () => {
           setNome('');
