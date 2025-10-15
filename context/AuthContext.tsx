@@ -28,15 +28,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     async function loadStoragedData() {
       try {
-        // inicializa DB primeiro
         console.log('[AuthContext] iniciando initDatabase, platform:', Platform.OS);
         await initDatabase();
         console.log('[AuthContext] initDatabase finalizado');
-        // Não restaurar automaticamente o usuário ao iniciar a aplicação.
-        // Isso garante que, ao abrir o site, o usuário veja a tela de login
-        // e precise autenticar explicitamente (validando contra o SQLite local).
-        // Se quiser habilitar "lembrar sessão", podemos implementar uma flag
-        // separada e restaurar apenas quando essa opção for marcada.
       } catch (e) {
         console.warn('Erro ao carregar dados armazenados no AuthContext:', e);
       } finally {
@@ -76,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setUser(null);
       setToken(null); 
-      // Limpar todas as chaves do app que começam com o prefixo
       await clearAppStoragePrefix();
     } catch (error) {
       console.error("Erro no logout:", error);

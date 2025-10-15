@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import Header from '../../components/ui/Header';
+import { Header } from '../../components/ui/Header';
 import { useRouter } from 'expo-router';
 import { screenInfo, responsiveSize } from '../../utils/responsive';
 

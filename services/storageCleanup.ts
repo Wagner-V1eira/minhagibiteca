@@ -10,7 +10,6 @@ export async function clearAppStoragePrefix(): Promise<void> {
     await AsyncStorage.multiRemove(appKeys);
   } catch (error) {
     console.warn('Erro ao limpar storage do app:', error);
-    // como fallback, tentar limpar tudo (cautela: remove tudo do AsyncStorage)
     try {
       await AsyncStorage.clear();
     } catch (e) {

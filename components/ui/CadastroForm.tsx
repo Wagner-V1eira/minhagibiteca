@@ -29,8 +29,6 @@ export default function CadastroForm() {
 
     try {
       const response = await cadastrarUsuario({ nome, email, senha });
-
-      // Após cadastro, redirecionar para a tela de login (não logar automaticamente)
       notify.success(
         response.message,
         'Cadastro Realizado',

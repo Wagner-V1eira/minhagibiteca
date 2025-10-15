@@ -1,6 +1,6 @@
 import React from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
-import HeaderLogin from '../../components/ui/HeaderLogin';
+import { LogoHeader } from '../../components/ui/Header';
 import LoginForm from '../../components/ui/LoginForm';
 import styles from './login.styles';
 
@@ -18,7 +18,7 @@ export default function Login() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.contentWrapper}>
-          <HeaderLogin />
+          <LogoHeader variant="login" />
           <LoginForm />
         </View>
       </ScrollView>

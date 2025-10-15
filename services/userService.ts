@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import { Platform } from 'react-native';
 import { executeSql, initDatabase } from './sqliteService';
 
-// Inicializa o DB ao importar o serviço (idempotente) apenas em native
 if (Platform.OS !== 'web') {
   initDatabase().catch((e) => console.warn('Erro ao inicializar DB:', e));
 }
@@ -15,7 +14,6 @@ export async function cadastrarUsuario(data: {
 }): Promise<{ message: string }> {
   const email = data.email.toLowerCase();
 
-  // Web fallback: usar AsyncStorage para persistir usuários no navegador
   if (Platform.OS === 'web') {
     const key = '@MinhaGibiteca:usuarios';
     const raw = await AsyncStorage.getItem(key);
@@ -40,7 +38,6 @@ export async function cadastrarUsuario(data: {
     return { message: 'Usuário cadastrado com sucesso' };
   }
 
-  // Native: usar SQLite
   const senhaHash = await bcrypt.hash(data.senha, 10);
 
   try {
@@ -85,7 +82,6 @@ export async function loginUsuario(data: { email: string; senha: string; }): Pro
       };
     }
 
-    // Native (SQLite)
     const res: any = await executeSql(
       'SELECT id, nome, email, senha FROM usuarios WHERE email = ? LIMIT 1;',
       [email]
@@ -94,7 +90,6 @@ export async function loginUsuario(data: { email: string; senha: string; }): Pro
     console.log('[userService] (native) SELECT rows length', rows.length, rows);
     if (!rows || rows.length === 0) {
       console.log('[userService] (native) nenhum usuário encontrado no SQLite, verificando AsyncStorage como fallback');
-      // fallback: verificar AsyncStorage (pode ter sido criado pela versão web ou pelo fallback nativo)
       try {
         const key1 = '@MinhaGibiteca:native_users';
         const key2 = '@MinhaGibiteca:usuarios';

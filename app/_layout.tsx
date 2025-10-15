@@ -1,4 +1,3 @@
-// app/_layout.tsx (VERSÃO CORRIGIDA E SIMPLES)
 import { Stack } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from '../components/ui/ToastConfig';

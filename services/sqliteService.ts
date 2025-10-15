@@ -8,9 +8,6 @@ const dbReady = new Promise<void>((resolve) => {
 });
 
 if (Platform.OS !== 'web') {
-  // Tentativa de importar dynamicamente expo-sqlite com retries para evitar
-  // condições de corrida no Android/iOS. Não usamos require() para manter
-  // compatibilidade com linter/tooling.
   (async () => {
     const maxAttempts = 6;
     let attempt = 0;
@@ -31,7 +28,6 @@ if (Platform.OS !== 'web') {
       attempt += 1;
       await new Promise((r) => setTimeout(r, 150));
     }
-    // diagnóstico: log do estado do DB após tentativas
     try {
       console.log('[sqlite] depois das tentativas de import - estado do db:', {
         platform: Platform.OS,
@@ -40,11 +36,7 @@ if (Platform.OS !== 'web') {
         dbKeys: db && typeof db === 'object' ? Object.keys(db) : null,
       });
     } catch {
-      // ignore
     }
-    // Se após as tentativas o db ainda não expor transaction, registramos um
-    // fallback simples baseado em AsyncStorage para cobrir operações usadas
-    // pelo userService (INSERT e SELECT na tabela usuarios).
     if (!db || typeof db.transaction !== 'function') {
       console.warn('[sqlite] DB nativo não disponível — ativando fallback AsyncStorage (native)');
       db = {
@@ -53,7 +45,6 @@ if (Platform.OS !== 'web') {
             executeSql: async (sql: string, params: any[] = [], success?: any, error?: any) => {
               try {
                 const key = '@MinhaGibiteca:native_users';
-                // INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, ?);
                 if (/INSERT\s+INTO\s+usuarios/i.test(sql)) {
                   const raw = await AsyncStorage.getItem(key);
                   const users = raw ? JSON.parse(raw) as any[] : [];
@@ -68,7 +59,6 @@ if (Platform.OS !== 'web') {
                   return;
                 }
 
-                // SELECT id, nome, email, senha FROM usuarios WHERE email = ? LIMIT 1;
                 if (/SELECT\s+id,\s*nome,\s*email,\s*senha\s+FROM\s+usuarios/i.test(sql)) {
                   const raw = await AsyncStorage.getItem(key);
                   const users = raw ? JSON.parse(raw) as any[] : [];
@@ -80,7 +70,6 @@ if (Platform.OS !== 'web') {
                   return;
                 }
 
-                // Para outras queries, retornamos um resultado neutro
                 const result = { rows: { length: 0, _array: [], item: (_i: number) => null }, insertId: undefined, rowsAffected: 0 };
                 success && success(tx, result);
               } catch (e) {
@@ -97,9 +86,6 @@ if (Platform.OS !== 'web') {
     try { resolveDbReady(); } catch {}
   })();
 } else {
-  // Fallback simples para web: mock que aceita transações e retorna resultados vazios.
-  // Isso evita a quebra da aplicação em web. Para persistência real no web, veja
-  // as alternativas acima.
   console.warn('expo-sqlite não disponível no Web — usando fallback mock (sem persistência).');
   db = {
     transaction: (cb: any) => {
@@ -121,21 +107,16 @@ if (Platform.OS !== 'web') {
       cb(tx);
     },
   };
-  // sinaliza que o DB mock já está pronto
   try {
     resolveDbReady();
   } catch {
-    // ignore
   }
 }
 
 export async function executeSql<T = any>(sql: string, params: any[] = []): Promise<T> {
-  // aguarda o DB estar pronto (ou pelo menos o processo de inicialização ter ocorrido)
   await dbReady;
-  // Tenta garantir que o módulo sqlite esteja carregado se possível
   if (Platform.OS !== 'web' && (!db || typeof db.transaction !== 'function')) {
     try {
-      // tentar carregar on-demand
       const mod: any = await import('expo-sqlite');
       const SQLite: any = mod && (mod.openDatabase ? mod : mod.default);
       if (SQLite && typeof SQLite.openDatabase === 'function') {
@@ -148,7 +129,6 @@ export async function executeSql<T = any>(sql: string, params: any[] = []): Prom
     }
   }
 
-  // espera pequenas tentativas para o DB ficar disponível
   const maxRetries = 8;
   let attempt = 0;
   while (( !db || typeof db.transaction !== 'function') && attempt < maxRetries) {
@@ -183,9 +163,7 @@ export async function executeSql<T = any>(sql: string, params: any[] = []): Prom
 }
 
 export async function initDatabase() {
-  // aguarda DB ready
   await dbReady;
-  // Se o db não estiver pronto, tente carregar on-demand e aguardar
   if (Platform.OS !== 'web' && (!db || typeof db.transaction !== 'function')) {
     try {
       const mod: any = await import('expo-sqlite');
@@ -199,7 +177,6 @@ export async function initDatabase() {
       console.warn('[sqlite] initDatabase: falha no import dinâmico:', err);
     }
 
-    // pequenas tentativas para o DB ficar disponível
     const maxRetries = 8;
     let attempt = 0;
     while (( !db || typeof db.transaction !== 'function') && attempt < maxRetries) {
@@ -208,7 +185,6 @@ export async function initDatabase() {
     }
   }
 
-  // cria a tabela de usuários se não existir (ou lança erro caso DB não disponível)
   await executeSql(
     `CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
