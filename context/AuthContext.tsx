@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import { initDatabase } from '../services/sqliteService';
+import { clearAppStoragePrefix } from '../services/storageCleanup';
 import { loginUsuario } from '../services/userService';
 interface User {
   id: string;
@@ -23,7 +26,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(false);
+    async function loadStoragedData() {
+      try {
+        // inicializa DB primeiro
+        console.log('[AuthContext] iniciando initDatabase, platform:', Platform.OS);
+        await initDatabase();
+        console.log('[AuthContext] initDatabase finalizado');
+        // Não restaurar automaticamente o usuário ao iniciar a aplicação.
+        // Isso garante que, ao abrir o site, o usuário veja a tela de login
+        // e precise autenticar explicitamente (validando contra o SQLite local).
+        // Se quiser habilitar "lembrar sessão", podemos implementar uma flag
+        // separada e restaurar apenas quando essa opção for marcada.
+      } catch (e) {
+        console.warn('Erro ao carregar dados armazenados no AuthContext:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadStoragedData();
   }, []);
 
   const login = async (credentials: any) => {
@@ -55,9 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setUser(null);
       setToken(null); 
-      
-      await AsyncStorage.removeItem('@MinhaGibiteca:user');
-      await AsyncStorage.removeItem('@MinhaGibiteca:token');
+      // Limpar todas as chaves do app que começam com o prefixo
+      await clearAppStoragePrefix();
     } catch (error) {
       console.error("Erro no logout:", error);
       setUser(null);

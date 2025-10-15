@@ -48,3 +48,33 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Migração para SQLite local
+
+Este projeto foi migrado para usar SQLite local (via `expo-sqlite`) para gerenciar usuários (cadastro/login) sem depender do backend remoto.
+
+Passos para preparar o ambiente localmente:
+
+1. Instale dependências:
+
+```bash
+npm install
+npx expo install expo-sqlite
+```
+
+2. (Opcional) Se ainda não instalado, instale `bcryptjs` (já adicionado ao package.json):
+
+```bash
+npm install
+```
+
+3. Inicie o aplicativo:
+
+```bash
+npx expo start
+```
+
+Notas:
+- A tabela `usuarios` é criada automaticamente ao iniciar o app (pelo serviço `services/sqliteService.ts`).
+- Se quiser reverter para o backend antigo, restaure as chamadas em `services/userService.ts`.
+

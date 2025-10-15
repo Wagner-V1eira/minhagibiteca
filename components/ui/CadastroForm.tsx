@@ -1,7 +1,8 @@
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'; 
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import styles from '../../app/(usuario)/cadastro.styles';
+import { useAuth } from '../../context/AuthContext';
 import { cadastrarUsuario } from '../../services/userService';
 import { notify } from './notifyService';
 
@@ -12,6 +13,7 @@ export default function CadastroForm() {
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  useAuth();
 
   const handleCadastro = async () => {
     if (!nome || !email || !senha || !confirmarSenha) {
@@ -27,7 +29,8 @@ export default function CadastroForm() {
 
     try {
       const response = await cadastrarUsuario({ nome, email, senha });
-      
+
+      // Após cadastro, redirecionar para a tela de login (não logar automaticamente)
       notify.success(
         response.message,
         'Cadastro Realizado',
@@ -36,7 +39,7 @@ export default function CadastroForm() {
           setEmail('');
           setSenha('');
           setConfirmarSenha('');
-          router.push('/(usuario)/login');
+          router.replace('/(usuario)/login');
         }
       );
     } catch (error: any) {
