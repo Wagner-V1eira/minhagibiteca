@@ -124,14 +124,14 @@ export default function CadastrarColecao() {
                   capaUrl: gibiSelecionado.image.original_url || gibiSelecionado.image.medium_url,
                 });
 
-                notify.success(`Gibi adicionado à coleção "${nomeColecao}"!`, 'Sucesso');              // Limpar formulário e fechar modais
-              setNomePersonagem('');
-              setTitulo('');
-              setNumeroEdicao('');
-              setResultadosBusca([]);
+                notify.success(`Gibi adicionado à coleção "${nomeColecao}"!`, 'Sucesso');
+              
+              // Limpar apenas a seleção, mantendo a tela de busca aberta
               setGibiSelecionado(null);
               setModalSelecionarColecao(false);
-              setModalAdicionarGibi(false);
+              // NÃO fecha o modal de adicionar gibi
+              // NÃO limpa os campos de busca
+              // NÃO limpa os resultados
             } catch (error: any) {
               notify.error(error.message || 'Erro ao adicionar gibi', 'Erro');
             }

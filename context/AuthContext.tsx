@@ -1,6 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { loginUsuario } from '../services/userService';
+import { auth, db } from '../config/firebaseConfig';
+import { loginUsuario, logoutUsuario } from '../services/userService';
+
 interface User {
   id: string;
   nome: string;
@@ -11,7 +14,7 @@ interface AuthContextData {
   user: User | null;
   token: string | null; 
   loading: boolean;
-  login(credentials: any): Promise<void>;
+  login(credentials: { email: string; senha: string }): Promise<void>;
   logout(): Promise<void>;
 }
 
@@ -23,53 +26,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStoragedData() {
-      try {
-        console.log('[AuthContext] Carregando dados armazenados...');
-
-        const storedUser = await AsyncStorage.getItem('@MinhaGibiteca:user');
-        const storedToken = await AsyncStorage.getItem('@MinhaGibiteca:token');
-
-        if (storedUser && storedToken) {
-          const parsedUser = JSON.parse(storedUser) as User;
-          console.log('[AuthContext] Sessão restaurada:', { 
-            email: parsedUser.email, 
-            hasToken: !!storedToken 
-          });
-          setUser(parsedUser);
-          setToken(storedToken);
-        } else {
-          console.log('[AuthContext] Nenhuma sessão armazenada encontrada');
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      console.log('[AuthContext] Estado de autenticação mudou:', firebaseUser ? 'logado' : 'deslogado');
+      
+      if (firebaseUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const finalUser: User = {
+              id: firebaseUser.uid,
+              nome: userData.nome,
+              email: userData.email,
+            };
+            
+            setUser(finalUser);
+            setToken(await firebaseUser.getIdToken());
+            
+            console.log('[AuthContext] ✅ Usuário autenticado:', finalUser.email);
+          } else {
+            console.warn('[AuthContext] ⚠️ Usuário autenticado mas sem dados no Firestore');
+          }
+        } catch (error: any) {
+          console.error('[AuthContext] ❌ Erro ao buscar dados do usuário:', error.message);
+          if (error.code === 'unavailable') {
+            console.warn('[AuthContext] ⚠️ Firestore offline - tentará reconectar automaticamente');
+          }
         }
-      } catch (e) {
-        console.warn('[AuthContext] Erro ao carregar dados armazenados:', e);
-      } finally {
-        setLoading(false);
+      } else {
+        setUser(null);
+        setToken(null);
       }
-    }
+      
+      setLoading(false);
+    });
 
-    loadStoragedData();
+    return unsubscribe;
   }, []);
 
-  const login = async (credentials: any) => {
+  const login = async (credentials: { email: string; senha: string }) => {
     setLoading(true);
     try {
-      
-      const loginResponse = await loginUsuario(credentials); 
+      const usuario = await loginUsuario(credentials.email, credentials.senha);
       
       const finalUser: User = {
-        id: loginResponse.user.id,
-        nome: loginResponse.user.nome,
-        email: loginResponse.user.email
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email
       };
 
       setUser(finalUser);
-      setToken(loginResponse.token); 
+      
+      const firebaseToken = await auth.currentUser?.getIdToken();
+      setToken(firebaseToken || null);
 
-      await AsyncStorage.setItem('@MinhaGibiteca:user', JSON.stringify(finalUser));
-      await AsyncStorage.setItem('@MinhaGibiteca:token', loginResponse.token);
-
+      console.log('[AuthContext] ✅ Login realizado com sucesso:', finalUser.email);
     } catch (error: any) {
+      console.error('[AuthContext] ❌ Erro no login:', error.message);
+      
+      if (error.message.includes('network')) {
+        throw new Error('Sem conexão com a internet. Verifique sua rede.');
+      }
+      
       throw new Error(error.message || 'Erro ao fazer login');
     } finally {
       setLoading(false);
@@ -78,17 +97,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      await logoutUsuario();
       setUser(null);
       setToken(null);
       
-      await AsyncStorage.multiRemove([
-        '@MinhaGibiteca:user',
-        '@MinhaGibiteca:token'
-      ]);
-      
-      console.log('[AuthContext] Logout realizado - sessão limpa');
+      console.log('[AuthContext] Logout realizado com sucesso');
     } catch (error) {
-      console.error("Erro no logout:", error);
+      console.error('[AuthContext] Erro no logout:', error);
       setUser(null);
       setToken(null);
     }

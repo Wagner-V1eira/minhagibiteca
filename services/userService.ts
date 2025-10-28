@@ -1,123 +1,93 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
 
-const USERS_KEY = '@MinhaGibiteca:usuarios';
+export interface Usuario {
+  id: string;
+  nome: string;
+  email: string;
+  criadoEm: string;
+}
 
 export async function cadastrarUsuario(data: {
   nome: string;
   email: string;
   senha: string;
-}): Promise<{ message: string }> {
-  const email = data.email.toLowerCase();
-
-  if (!data.senha || typeof data.senha !== 'string' || data.senha.length < 1) {
-    throw new Error('Senha inválida');
-  }
-
-  const senhaLimpa = String(data.senha).trim();
-  
-  if (!senhaLimpa || senhaLimpa.length < 1) {
-    throw new Error('Senha não pode ser vazia');
-  }
-
+}): Promise<{ message: string; usuario: Usuario }> {
   try {
-    const raw = await AsyncStorage.getItem(USERS_KEY);
-    const users = raw ? JSON.parse(raw) as any[] : [];
-
-    if (users.find((u: any) => (u.email || '').toLowerCase() === email)) {
-      throw new Error('Usuário já cadastrado');
-    }
-
-    const senhaHash = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      senhaLimpa
+    const userCredential = await createUserWithEmailAndPassword(
+      auth, 
+      data.email, 
+      data.senha
     );
-    
-    const newUser = {
-      id: Date.now().toString(),
+
+    const userId = userCredential.user.uid;
+
+    const usuario: Usuario = {
+      id: userId,
       nome: data.nome,
-      email,
-      senha: senhaHash,
-      criado_em: new Date().toISOString(),
+      email: data.email,
+      criadoEm: new Date().toISOString(),
     };
 
-    users.push(newUser);
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
-    
-    console.log('[userService] cadastrarUsuario: sucesso', { 
-      email: newUser.email, 
-      id: newUser.id, 
-      senhaHashLength: senhaHash.length 
-    });
-    
-    return { message: 'Usuário cadastrado com sucesso' };
+    await setDoc(doc(db, 'users', userId), usuario);
+
+    console.log('[userService] Cadastro realizado com sucesso:', usuario.email);
+
+    return {
+      message: 'Usuário cadastrado com sucesso!',
+      usuario
+    };
   } catch (error: any) {
-    console.error('[userService] cadastrarUsuario: erro', error);
-    throw error;
+    console.error('[userService] Erro ao cadastrar:', error);
+    
+    if (error.code === 'auth/email-already-in-use') {
+      throw new Error('Este e-mail já está cadastrado');
+    } else if (error.code === 'auth/weak-password') {
+      throw new Error('A senha deve ter pelo menos 6 caracteres');
+    } else if (error.code === 'auth/invalid-email') {
+      throw new Error('E-mail inválido');
+    }
+    throw new Error('Erro ao cadastrar usuário');
   }
 }
 
-export async function loginUsuario(data: { 
-  email: string; 
-  senha: string; 
-}): Promise<{ 
-  user: { id: string; nome: string; email: string }; 
-  token: string; 
-}> {
-  const email = data.email.toLowerCase();
-  
+export async function loginUsuario(
+  email: string, 
+  senha: string
+): Promise<Usuario> {
   try {
-    console.log('[userService] loginUsuario: início', { email });
+    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+    const userId = userCredential.user.uid;
+
+    const userDoc = await getDoc(doc(db, 'users', userId));
     
-    const raw = await AsyncStorage.getItem(USERS_KEY);
-    const users = raw ? JSON.parse(raw) as any[] : [];
-    
-    console.log('[userService] loginUsuario: usuários encontrados', users.length);
-    
-    const usuario = users.find(u => (u.email || '').toLowerCase() === email);
-    
-    if (!usuario) {
-      console.log('[userService] loginUsuario: usuário não encontrado');
-      throw new Error('Credenciais inválidas');
-    }
-    
-    if (!usuario.senha || typeof usuario.senha !== 'string') {
-      console.error('[userService] loginUsuario: senha corrompida', { 
-        hasPassword: !!usuario.senha, 
-        type: typeof usuario.senha 
-      });
-      throw new Error('Dados de usuário corrompidos. Tente cadastrar novamente.');
-    }
-    
-    const senhaHashFornecida = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      data.senha
-    );
-    
-    const senhaCorreta = senhaHashFornecida === usuario.senha;
-    console.log('[userService] loginUsuario: senha verificada', senhaCorreta);
-    
-    if (!senhaCorreta) {
-      throw new Error('Credenciais inválidas');
+    if (!userDoc.exists()) {
+      throw new Error('Usuário não encontrado');
     }
 
-    const token = `local-token-${usuario.id}-${Date.now()}`;
-    
-    console.log('[userService] loginUsuario: sucesso', { 
-      id: usuario.id, 
-      email: usuario.email 
-    });
-    
-    return {
-      user: {
-        id: usuario.id.toString(),
-        nome: usuario.nome,
-        email: usuario.email,
-      },
-      token,
-    };
+    console.log('[userService] Login realizado com sucesso:', email);
+
+    return userDoc.data() as Usuario;
   } catch (error: any) {
-    console.error('[userService] loginUsuario: erro', error.message);
-    throw new Error(error.message || 'Erro ao fazer login');
+    console.error('[userService] Erro ao fazer login:', error);
+    
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      throw new Error('E-mail ou senha incorretos');
+    } else if (error.code === 'auth/wrong-password') {
+      throw new Error('Senha incorreta');
+    } else if (error.code === 'auth/invalid-email') {
+      throw new Error('E-mail inválido');
+    }
+    throw new Error('Erro ao fazer login');
   }
+}
+
+export async function logoutUsuario(): Promise<void> {
+  await signOut(auth);
+  console.log('[userService] Logout realizado');
 }
