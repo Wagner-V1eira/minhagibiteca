@@ -18,6 +18,7 @@ export interface Colecao {
   gibis: Gibi[];
 }
 
+
 export async function buscarColecoes(): Promise<Colecao[]> {
   try {
     const raw = await AsyncStorage.getItem(COLECOES_KEY);
@@ -100,6 +101,30 @@ export async function removerColecao(colecaoId: string): Promise<{ message: stri
     return { message: 'Coleção removida com sucesso!' };
   } catch (error: any) {
     console.error('[colecaoService] Erro ao remover coleção:', error);
+    throw error;
+  }
+}
+
+export async function removerGibiDaColecao(
+  colecaoId: string,
+  gibiId: string
+): Promise<{ message: string }> {
+  try {
+    const colecoes = await buscarColecoes();
+    const colecao = colecoes.find(c => c.id === colecaoId);
+
+    if (!colecao) {
+      throw new Error('Coleção não encontrada');
+    }
+
+    colecao.gibis = colecao.gibis.filter(g => g.id !== gibiId);
+    await AsyncStorage.setItem(COLECOES_KEY, JSON.stringify(colecoes));
+
+    return {
+      message: 'Gibi removido da coleção com sucesso!'
+    };
+  } catch (error: any) {
+    console.error('[colecaoService] Erro ao remover gibi:', error);
     throw error;
   }
 }

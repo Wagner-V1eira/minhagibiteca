@@ -82,10 +82,21 @@ export async function buscarGibi(params: BuscaGibiParams): Promise<ComicVineIssu
         
         const volumeName = issue.volume.name.toLowerCase().trim();
         const tituloLower = titulo.toLowerCase().trim();
-        const volumeMatch = volumeName === tituloLower || 
-                           volumeName.startsWith(`${tituloLower} (`);
+        
+        // Filtro mais flexível: aceita se o título está contido no nome do volume
+        const volumeMatch = volumeName.includes(tituloLower) || 
+                           tituloLower.includes(volumeName) ||
+                           volumeName.startsWith(tituloLower) ||
+                           volumeName === tituloLower;
         
         const issueMatch = issue.issue_number === numeroEdicao;
+        
+        console.log('[Comic Vine API] Verificando:', { 
+          volume: issue.volume.name, 
+          issue: issue.issue_number,
+          volumeMatch, 
+          issueMatch 
+        });
         
         return volumeMatch && issueMatch;
       });
