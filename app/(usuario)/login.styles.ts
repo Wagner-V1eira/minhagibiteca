@@ -1,5 +1,5 @@
-import { StyleSheet, Dimensions, PixelRatio, ViewStyle, TextStyle } from "react-native";
-import { screenInfo, responsiveSize } from '../../utils/responsive'; 
+import { Dimensions, PixelRatio, StyleSheet, TextStyle, ViewStyle } from "react-native";
+import { responsiveSize, screenInfo } from '../../utils/responsive';
 
 const { width } = Dimensions.get('window');
 const scale = width / 320;
@@ -103,15 +103,6 @@ const styles = StyleSheet.create({
     color: '#070707ff',
     fontWeight: "600",
     fontSize: responsiveSize.fontSize.medium,
-  },
-  googleButton: {
-    ...baseButton,
-    backgroundColor: '#DB4437',
-  },
-  googleButtonText: {
-    ...baseButtonText,
-    color: '#FFF',
-    fontWeight: "600",
   },
 });
 

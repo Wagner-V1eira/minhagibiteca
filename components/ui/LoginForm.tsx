@@ -1,6 +1,5 @@
-import * as Google from 'expo-auth-session/providers/google';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import styles from '../../app/(usuario)/login.styles';
 import { useAuth } from '../../context/AuthContext';
@@ -11,18 +10,6 @@ export default function LoginForm() {
   const router = useRouter();
   const { login, loading } = useAuth();
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: 'YOUR_EXPO_CLIENT_ID.apps.googleusercontent.com',
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success' && response.params.id_token) {
-      Alert.alert('Sucesso', 'Login via Google realizado!');
-    }
-  }, [response]);
 
   const handleLogin = async () => {
     if (!email || !senha) {
@@ -68,10 +55,6 @@ export default function LoginForm() {
         ) : (
           <Text style={styles.primaryButtonText}>Entrar</Text>
         )}
-      </TouchableOpacity>
-
-      <TouchableOpacity disabled={!request} onPress={() => promptAsync()} style={styles.googleButton}>
-        <Text style={styles.googleButtonText}>Entrar com Google</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/(usuario)/cadastro')}>

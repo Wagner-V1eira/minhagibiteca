@@ -62,19 +62,10 @@ npm install
 npx expo install expo-sqlite
 ```
 
-2. (Opcional) Se ainda não instalado, instale `bcryptjs` (já adicionado ao package.json):
-
-```bash
-npm install
-```
-
-3. Inicie o aplicativo:
+2. Inicie o aplicativo:
 
 ```bash
 npx expo start
 ```
 
-Notas:
-- A tabela `usuarios` é criada automaticamente ao iniciar o app (pelo serviço `services/sqliteService.ts`).
-- Se quiser reverter para o backend antigo, restaure as chamadas em `services/userService.ts`.
 

@@ -1,8 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import { initDatabase } from '../services/sqliteService';
-import { clearAppStoragePrefix } from '../services/storageCleanup';
 import { loginUsuario } from '../services/userService';
 interface User {
   id: string;
@@ -28,11 +25,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     async function loadStoragedData() {
       try {
-        console.log('[AuthContext] iniciando initDatabase, platform:', Platform.OS);
-        await initDatabase();
-        console.log('[AuthContext] initDatabase finalizado');
+        console.log('[AuthContext] Carregando dados armazenados...');
+
+        const storedUser = await AsyncStorage.getItem('@MinhaGibiteca:user');
+        const storedToken = await AsyncStorage.getItem('@MinhaGibiteca:token');
+
+        if (storedUser && storedToken) {
+          const parsedUser = JSON.parse(storedUser) as User;
+          console.log('[AuthContext] Sessão restaurada:', { 
+            email: parsedUser.email, 
+            hasToken: !!storedToken 
+          });
+          setUser(parsedUser);
+          setToken(storedToken);
+        } else {
+          console.log('[AuthContext] Nenhuma sessão armazenada encontrada');
+        }
       } catch (e) {
-        console.warn('Erro ao carregar dados armazenados no AuthContext:', e);
+        console.warn('[AuthContext] Erro ao carregar dados armazenados:', e);
       } finally {
         setLoading(false);
       }
@@ -69,8 +79,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setUser(null);
-      setToken(null); 
-      await clearAppStoragePrefix();
+      setToken(null);
+      
+      await AsyncStorage.multiRemove([
+        '@MinhaGibiteca:user',
+        '@MinhaGibiteca:token'
+      ]);
+      
+      console.log('[AuthContext] Logout realizado - sessão limpa');
     } catch (error) {
       console.error("Erro no logout:", error);
       setUser(null);

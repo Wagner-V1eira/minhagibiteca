@@ -1,188 +1,362 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Header } from '../../components/ui/Header';
 import { useRouter } from 'expo-router';
-import { screenInfo, responsiveSize } from '../../utils/responsive';
+import React, { useState } from 'react';
+import { Alert, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Header } from '../../components/ui/Header';
+import { notify } from '../../components/ui/notifyService';
+import { adicionarGibiNaColecao, buscarColecoes, criarColecao, type Colecao } from '../../services/colecaoService';
+import { buscarGibi, type ComicVineIssue } from '../../services/comicVineApi';
+import styles from './cadastrar.style';
 
 export default function CadastrarColecao() {
   const router = useRouter();
+
+  const [modalCriarColecao, setModalCriarColecao] = useState(false);
+  const [nomeColecao, setNomeColecao] = useState('');
+  const [loadingCriar, setLoadingCriar] = useState(false);
+  const [modalAdicionarGibi, setModalAdicionarGibi] = useState(false);
+  const [nomePersonagem, setNomePersonagem] = useState('');
+  const [titulo, setTitulo] = useState('');
+  const [numeroEdicao, setNumeroEdicao] = useState('');
+  const [loadingBusca, setLoadingBusca] = useState(false);
+  const [resultadosBusca, setResultadosBusca] = useState<ComicVineIssue[]>([]);
+  const [gibiSelecionado, setGibiSelecionado] = useState<ComicVineIssue | null>(null);
+
+  const [modalSelecionarColecao, setModalSelecionarColecao] = useState(false);
+  const [colecoes, setColecoes] = useState<Colecao[]>([]);
 
   const handleBack = () => {
     router.push('/tela_inicial/home');
   };
 
+  const handleCriarColecao = async () => {
+    if (!nomeColecao.trim()) {
+      notify.error('Digite um nome para a coleção', 'Atenção');
+      return;
+    }
+
+    setLoadingCriar(true);
+    try {
+      const response = await criarColecao(nomeColecao);
+      notify.success(response.message, 'Sucesso');
+      setNomeColecao('');
+      setModalCriarColecao(false);
+    } catch (error: any) {
+      notify.error(error.message || 'Erro ao criar coleção', 'Erro');
+    } finally {
+      setLoadingCriar(false);
+    }
+  };
+
+  const handleBuscarGibi = async () => {
+    if (!nomePersonagem.trim() || !titulo.trim() || !numeroEdicao.trim()) {
+      notify.error('Todos os campos são obrigatórios', 'Atenção');
+      return;
+    }
+
+    setLoadingBusca(true);
+    try {
+      const resultados = await buscarGibi({
+        nomePersonagem: nomePersonagem.trim(),
+        titulo: titulo.trim(),
+        numeroEdicao: numeroEdicao.trim(),
+      });
+
+      if (resultados.length === 0) {
+        notify.error('Nenhum gibi encontrado com esses critérios', 'Não encontrado');
+        setResultadosBusca([]);
+      } else {
+        setResultadosBusca(resultados);
+        notify.success(`${resultados.length} edição(ões) encontrada(s)!`, 'Sucesso');
+      }
+    } catch (error: any) {
+      notify.error(error.message || 'Erro ao buscar gibi', 'Erro');
+      setResultadosBusca([]);
+    } finally {
+      setLoadingBusca(false);
+    }
+  };
+
+  const handleSelecionarGibi = (gibi: ComicVineIssue) => {
+    Alert.alert(
+      'Adicionar Gibi',
+      `${gibi.volume.name} #${gibi.issue_number}\n${gibi.cover_date ? `Data: ${gibi.cover_date}` : ''}\n\nAdicionar este gibi à coleção?`,
+      [
+        { text: '✗ Não', style: 'cancel' },
+        {
+          text: '✓ Sim',
+          onPress: () => {
+            setGibiSelecionado(gibi);
+            handleAbrirModalColecoes();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAbrirModalColecoes = async () => {
+    const colecoesCarregadas = await buscarColecoes();
+    
+    if (colecoesCarregadas.length === 0) {
+      notify.error('Crie uma coleção primeiro!', 'Atenção');
+      return;
+    }
+
+    setColecoes(colecoesCarregadas);
+    setModalSelecionarColecao(true);
+  };
+
+  const handleAdicionarGibiNaColecao = async (colecaoId: string, nomeColecao: string) => {
+    if (!gibiSelecionado) return;
+
+    Alert.alert(
+      'Confirmar',
+      `Adicionar este gibi à coleção "${nomeColecao}"?`,
+      [
+        { text: '✗ Não', style: 'cancel' },
+        {
+          text: '✓ Sim',
+          onPress: async () => {
+              try {
+                await adicionarGibiNaColecao(colecaoId, {
+                  nome: nomePersonagem || gibiSelecionado.name || 'Desconhecido',
+                  titulo: titulo || gibiSelecionado.volume.name,
+                  numeroEdicao: numeroEdicao || gibiSelecionado.issue_number,
+                  capaUrl: gibiSelecionado.image.original_url || gibiSelecionado.image.medium_url,
+                });
+
+                notify.success(`Gibi adicionado à coleção "${nomeColecao}"!`, 'Sucesso');              // Limpar formulário e fechar modais
+              setNomePersonagem('');
+              setTitulo('');
+              setNumeroEdicao('');
+              setResultadosBusca([]);
+              setGibiSelecionado(null);
+              setModalSelecionarColecao(false);
+              setModalAdicionarGibi(false);
+            } catch (error: any) {
+              notify.error(error.message || 'Erro ao adicionar gibi', 'Erro');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Header 
-        title="Adicionar à Coleção" 
+        title="Cadastrar Coleção" 
         showBackButton={true}
         onBack={handleBack}
       />
       
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.heroSection}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.heroIcon}>🔍</Text>
-          </View>
-          <Text style={styles.heroTitle}>Buscar Quadrinhos</Text>
-          <Text style={styles.heroSubtitle}>
-            Encontre e adicione quadrinhos incríveis à sua coleção pessoal
-          </Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.mainButton}
+          onPress={() => setModalCriarColecao(true)}
+        >
+          <Text style={styles.buttonIcon}>📚</Text>
+          <Text style={styles.buttonText}>Criar Coleção</Text>
+        </TouchableOpacity>
 
-        <View style={styles.featuresContainer}>
-          <Text style={styles.featuresTitle}>Funcionalidades em Desenvolvimento</Text>
-          
-          <View style={styles.featureCard}>
-            <Text style={styles.featureIcon}>📚</Text>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Busca Inteligente</Text>
-              <Text style={styles.featureDescription}>Busque quadrinhos por título, autor ou série</Text>
-            </View>
-          </View>
-
-          <View style={styles.featureCard}>
-            <Text style={styles.featureIcon}>🖼️</Text>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Visualização Completa</Text>
-              <Text style={styles.featureDescription}>Veja capas, sinopses e detalhes completos</Text>
-            </View>
-          </View>
-
-          <View style={styles.featureCard}>
-            <Text style={styles.featureIcon}>💾</Text>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Coleção Pessoal</Text>
-              <Text style={styles.featureDescription}>Adicione à sua biblioteca digital</Text>
-            </View>
-          </View>
-
-          <View style={styles.featureCard}>
-            <Text style={styles.featureIcon}>✅</Text>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Status de Leitura</Text>
-              <Text style={styles.featureDescription}>Marque como lido ou na lista de desejos</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.comingSoonBadge}>
-          <Text style={styles.comingSoonText}>🚀 Em Breve</Text>
-        </View>
+        <TouchableOpacity 
+          style={[styles.mainButton, styles.secondButton]}
+          onPress={() => setModalAdicionarGibi(true)}
+        >
+          <Text style={styles.buttonIcon}>➕</Text>
+          <Text style={styles.buttonText}>Adicionar à Coleção</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={modalCriarColecao}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalCriarColecao(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Criar Nova Coleção</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Nome da coleção (ex: SPAWN)"
+              placeholderTextColor="#999"
+              value={nomeColecao}
+              onChangeText={setNomeColecao}
+              editable={!loadingCriar}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalCriarColecao(false)}
+                disabled={loadingCriar}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleCriarColecao}
+                disabled={loadingCriar}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {loadingCriar ? 'Criando...' : 'Criar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalAdicionarGibi}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalAdicionarGibi(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContentLarge}>
+            <ScrollView 
+              showsVerticalScrollIndicator={true}
+            >
+              <Text style={styles.modalTitle}>Buscar Gibi</Text>
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Nome do personagem *"
+                placeholderTextColor="#999"
+                value={nomePersonagem}
+                onChangeText={setNomePersonagem}
+                editable={!loadingBusca}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Título *"
+                placeholderTextColor="#999"
+                value={titulo}
+                onChangeText={setTitulo}
+                editable={!loadingBusca}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Número da edição *"
+                placeholderTextColor="#999"
+                value={numeroEdicao}
+                onChangeText={setNumeroEdicao}
+                keyboardType="numeric"
+                editable={!loadingBusca}
+              />
+
+              <TouchableOpacity 
+                style={[styles.searchButton]}
+                onPress={handleBuscarGibi}
+                disabled={loadingBusca}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {loadingBusca ? 'Buscando...' : '🔍 Buscar'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Galeria de Resultados */}
+              {resultadosBusca.length > 0 && (
+                <View style={styles.galeriaContainer}>
+                  <Text style={styles.galeriaTitle}>
+                    {resultadosBusca.length} edição(ões) encontrada(s). Toque na capa para adicionar:
+                  </Text>
+                  
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.galeriaScroll}
+                    contentContainerStyle={styles.galeriaContent}
+                  >
+                    {resultadosBusca.map((gibi, index) => (
+                      <TouchableOpacity
+                        key={`${gibi.id}-${index}`}
+                        style={styles.galeriaItem}
+                        onPress={() => handleSelecionarGibi(gibi)}
+                      >
+                        <Image 
+                          source={{ uri: gibi.image.medium_url }}
+                          style={styles.galeriaCapa}
+                          resizeMode="cover"
+                        />
+                        <Text style={styles.galeriaVolume} numberOfLines={2}>
+                          {gibi.volume.name}
+                        </Text>
+                        <Text style={styles.galeriaIssue}>
+                          #{gibi.issue_number}
+                        </Text>
+                        {gibi.cover_date && (
+                          <Text style={styles.galeriaDate}>
+                            {new Date(gibi.cover_date).getFullYear() || ''}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.cancelButton, { flex: 1 }]}
+                  onPress={() => {
+                    setModalAdicionarGibi(false);
+                    setResultadosBusca([]);
+                    setGibiSelecionado(null);
+                    setNomePersonagem('');
+                    setTitulo('');
+                    setNumeroEdicao('');
+                  }}
+                  disabled={loadingBusca}
+                >
+                  <Text style={styles.cancelButtonText}>Fechar</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Selecionar Coleção */}
+      <Modal
+        visible={modalSelecionarColecao}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalSelecionarColecao(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Escolha a Coleção</Text>
+            
+            <ScrollView style={styles.colecoesListScroll}>
+              {colecoes.map(colecao => (
+                <TouchableOpacity
+                  key={colecao.id}
+                  style={styles.colecaoItem}
+                  onPress={() => handleAdicionarGibiNaColecao(colecao.id, colecao.nome)}
+                >
+                  <Text style={styles.colecaoNome}>📚 {colecao.nome}</Text>
+                  <Text style={styles.colecaoInfo}>
+                    {colecao.gibis.length} {colecao.gibis.length === 1 ? 'gibi' : 'gibis'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton, { marginTop: 16 }]}
+              onPress={() => setModalSelecionarColecao(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdc556ff',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: responsiveSize.padding.screen,
-    paddingTop: responsiveSize.spacing.lg,
-  },
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: responsiveSize.spacing.xl,
-    paddingHorizontal: responsiveSize.spacing.md,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: responsiveSize.spacing.md,
-  },
-  heroIcon: {
-    fontSize: responsiveSize.fontSize.title,
-  },
-  heroTitle: {
-    fontSize: responsiveSize.fontSize.xxlarge,
-    fontWeight: 'bold',
-    color: '#2c2c2c',
-    textAlign: 'center',
-    marginBottom: responsiveSize.spacing.sm,
-  },
-  heroSubtitle: {
-    fontSize: responsiveSize.fontSize.medium,
-    color: '#4a4a4a',
-    textAlign: 'center',
-    lineHeight: screenInfo.isMobileDevice ? 22 : 24,
-    maxWidth: responsiveSize.width.container * 0.8,
-  },
-  featuresContainer: {
-    width: '100%',
-    marginBottom: responsiveSize.spacing.xl,
-  },
-  featuresTitle: {
-    fontSize: responsiveSize.fontSize.large,
-    fontWeight: '700',
-    color: '#2c2c2c',
-    textAlign: 'center',
-    marginBottom: responsiveSize.spacing.lg,
-  },
-  featureCard: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    padding: responsiveSize.spacing.lg,
-    borderRadius: 12,
-    marginBottom: responsiveSize.spacing.md,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  featureIcon: {
-    fontSize: responsiveSize.fontSize.xlarge,
-    marginRight: responsiveSize.spacing.md,
-    width: 40,
-    textAlign: 'center',
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: responsiveSize.fontSize.medium,
-    fontWeight: '700',
-    color: '#2c2c2c',
-    marginBottom: responsiveSize.spacing.xs,
-  },
-  featureDescription: {
-    fontSize: responsiveSize.fontSize.small,
-    color: '#666',
-    lineHeight: screenInfo.isMobileDevice ? 18 : 20,
-  },
-  comingSoonBadge: {
-    backgroundColor: '#f26012',
-    paddingHorizontal: responsiveSize.spacing.lg,
-    paddingVertical: responsiveSize.spacing.md,
-    borderRadius: 25,
-    alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  comingSoonText: {
-    fontSize: responsiveSize.fontSize.medium,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
-  },
-});

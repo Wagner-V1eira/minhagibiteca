@@ -105,15 +105,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: responsiveSize.fontSize.medium,
   },
-  googleButton: {
-    ...baseButton,
-    backgroundColor: '#DB4437',
-  },
-  googleButtonText: {
-    ...baseButtonText,
-    color: '#FFF',
-    fontWeight: '600',
-  },
 });
 
 export default styles;
